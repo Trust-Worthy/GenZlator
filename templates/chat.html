@@ -46,38 +46,16 @@
         </div>
         <nav class="flex-grow overflow-y-auto">
             <!-- Example Chat Contact -->
-            <a href="#" class="flex items-center p-4 hover:bg-gray-50 border-b border-gray-100 transition duration-200">
-                <img class="w-12 h-12 rounded-full mr-4 object-cover" src="https://placehold.co/128x128/D8B4FE/7C3AED?text=GM" alt="Grandma's Profile">
+            {% for contact in contacts %}
+            <a href="{{ url_for('chat', contact_username=contact.username) }}" class="flex items-center p-4 hover:bg-gray-50 border-b border-gray-100 transition duration-200">
+                <img class="w-12 h-12 rounded-full mr-4 object-cover" src="{{ contact.profile_picture_url }}" alt="{{ contact.username }}'s Profile">
                 <div class="flex-grow">
-                    <div class="font-semibold text-gray-800">Grandma Cool</div>
-                    <div class="text-sm text-gray-500 truncate">Last message: "I'd love to see you soon!"</div>
+                    <div class="font-semibold text-gray-800">{{ contact.display_name }}</div>
+                    <div class="text-sm text-gray-500 truncate">{{ contact.last_message|default("No messages yet.") }}</div>
                 </div>
-                <div class="text-xs text-gray-400">10:30 AM</div>
+                <div class="text-xs text-gray-400">{{ contact.last_seen|default("") }}</div>
             </a>
-            <a href="#" class="flex items-center p-4 hover:bg-gray-50 border-b border-gray-100 transition duration-200 bg-purple-50">
-                <img class="w-12 h-12 rounded-full mr-4 object-cover" src="https://placehold.co/128x128/9CA3AF/FFFFFF?text=MZ" alt="Millennial's Profile">
-                <div class="flex-grow">
-                    <div class="font-semibold text-gray-800">Millennial Zoe</div>
-                    <div class="text-sm text-purple-600 font-medium truncate">You: "Bet!"</div>
-                </div>
-                <div class="text-xs text-purple-600">Now</div>
-            </a>
-            <a href="#" class="flex items-center p-4 hover:bg-gray-50 border-b border-gray-100 transition duration-200">
-                <img class="w-12 h-12 rounded-full mr-4 object-cover" src="https://placehold.co/128x128/FDE68A/92400E?text=DD" alt="Dad's Profile">
-                <div class="flex-grow">
-                    <div class="font-semibold text-gray-800">Dad Jokes</div>
-                    <div class="text-sm text-gray-500 truncate">"Did you hear about the restaurant on the moon?"</div>
-                </div>
-                <div class="text-xs text-gray-400">Yesterday</div>
-            </a>
-            <a href="#" class="flex items-center p-4 hover:bg-gray-50 border-b border-gray-100 transition duration-200">
-                <img class="w-12 h-12 rounded-full mr-4 object-cover" src="https://placehold.co/128x128/A78BFA/4C1D95?text=AZ" alt="Alpha's Profile">
-                <div class="flex-grow">
-                    <div class="font-semibold text-gray-800">Alpha Zoomer</div>
-                    <div class="text-sm text-gray-500 truncate">"It was out of this world!"</div>
-                </div>
-                <div class="text-xs text-gray-400">Yesterday</div>
-            </a>
+            {% endfor %}
             <!-- More contacts can be added here -->
         </nav>
     </div>
@@ -109,70 +87,7 @@
 
         <!-- Chat Messages -->
         <div class="flex-grow p-6 overflow-y-auto chat-messages space-y-4">
-            <!-- Incoming Message (Millennial Zoe) -->
-            <div class="flex items-start">
-                <img class="w-8 h-8 rounded-full mr-3 object-cover" src="https://placehold.co/128x128/9CA3AF/FFFFFF?text=MZ" alt="Millennial Zoe's Profile">
-                <div class="bg-white p-3 rounded-lg shadow-md max-w-lg">
-                    <p class="text-gray-800">Hey, fam! Just dropped by to say what's up!</p>
-                    <div class="text-xs text-gray-500 mt-1 text-right">10:00 AM</div>
-                </div>
-            </div>
-            <!-- Translated Incoming Message -->
-            <div class="flex items-start">
-                <div class="w-8 h-8 mr-3"></div> <!-- Spacer for alignment -->
-                <div class="bg-purple-100 p-3 rounded-lg shadow-md max-w-lg relative">
-                    <p class="text-purple-800 font-medium text-sm">Translated:</p>
-                    <p class="text-purple-700">"How's it going, everyone? Just wanted to check in!"</p>
-                    <button class="absolute -bottom-2 -right-2 bg-purple-500 text-white rounded-full p-1 text-xs w-6 h-6 flex items-center justify-center shadow-md hover:bg-purple-600 transition duration-200" title="Mini-Lesson">
-                        <i class="fas fa-graduation-cap"></i>
-                    </button>
-                    <div class="text-xs text-purple-500 mt-1 text-right">Learn</div>
-                </div>
-            </div>
-
-            <!-- Outgoing Message (You) -->
-            <div class="flex justify-end items-end">
-                <div class="bg-indigo-600 text-white p-3 rounded-lg shadow-md max-w-lg">
-                    <p>Lowkey down to vibe w y’all, bet</p>
-                    <div class="text-xs text-indigo-200 mt-1 text-right">10:05 AM</div>
-                </div>
-            </div>
-            <!-- Translated Outgoing Message -->
-            <div class="flex justify-end items-end">
-                <div class="bg-purple-100 p-3 rounded-lg shadow-md max-w-lg relative">
-                    <p class="text-purple-800 font-medium text-sm text-right">Translated:</p>
-                    <p class="text-purple-700 text-right">"I’d really like to spend time with you all. Sounds good!"</p>
-                    <button class="absolute -bottom-2 -left-2 bg-purple-500 text-white rounded-full p-1 text-xs w-6 h-6 flex items-center justify-center shadow-md hover:bg-purple-600 transition duration-200" title="Mini-Lesson">
-                        <i class="fas fa-graduation-cap"></i>
-                    </button>
-                    <div class="text-xs text-purple-500 mt-1 text-left">Learn</div>
-                </div>
-            </div>
-
-            <!-- Incoming Message (Grandma Cool) -->
-            <div class="flex items-start">
-                <img class="w-8 h-8 rounded-full mr-3 object-cover" src="https://placehold.co/128x128/D8B4FE/7C3AED?text=GM" alt="Grandma's Profile">
-                <div class="bg-white p-3 rounded-lg shadow-md max-w-lg">
-                    <p class="text-gray-800">Do you want to come over for dinner tonight?</p>
-                    <div class="text-xs text-gray-500 mt-1 text-right">10:10 AM</div>
-                </div>
-            </div>
-             <!-- Translated Incoming Message -->
-             <div class="flex items-start">
-                <div class="w-8 h-8 mr-3"></div> <!-- Spacer for alignment -->
-                <div class="bg-purple-100 p-3 rounded-lg shadow-md max-w-lg relative">
-                    <p class="text-purple-800 font-medium text-sm">Translated:</p>
-                    <p class="text-purple-700">"Pull up for some grub later?"</p>
-                    <button class="absolute -bottom-2 -right-2 bg-purple-500 text-white rounded-full p-1 text-xs w-6 h-6 flex items-center justify-center shadow-md hover:bg-purple-600 transition duration-200" title="Mini-Lesson">
-                        <i class="fas fa-graduation-cap"></i>
-                    </button>
-                    <div class="text-xs text-purple-500 mt-1 text-right">Learn</div>
-                </div>
-            </div>
-
-            <!-- More messages can be added here -->
-
-        </div>
+        <!-- Messages will be dynamically loaded here -->
 
         <!-- Message Input -->
         <div class="p-4 bg-white border-t border-gray-200 flex items-center shadow-inner">

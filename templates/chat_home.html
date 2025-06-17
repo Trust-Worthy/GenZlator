@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Chat Home</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-900">
+    <div class="max-w-2xl mx-auto p-4">
+        <h1 class="text-2xl font-bold mb-4">Conversations</h1>
+        <div class="flex flex-col space-y-2">
+            {% for contact, msg in contact_messages %}
+            <a href="{{ url_for('chat', contact_username=contact) }}"
+               class="flex items-center p-4 bg-white hover:bg-gray-50 border rounded shadow-sm transition duration-150">
+                <img class="w-10 h-10 rounded-full mr-4" src="https://placehold.co/40x40?text={{ contact[0]|upper }}" alt="{{ contact }}">
+                <div class="flex-grow">
+                    <div class="font-semibold text-gray-800">{{ contact }}</div>
+                    <div class="text-sm text-gray-500 truncate">
+                        {% if msg.sender == username %}You: {% endif %}{{ msg.content }}
+                    </div>
+                </div>
+                <div class="text-xs text-gray-400 ml-2">
+                    {{ msg.timestamp.strftime('%b %d, %H:%M') }}
+                </div>
+            </a>
+            {% else %}
+            <p class="text-gray-500">No conversations yet.</p>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html>

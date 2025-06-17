@@ -88,24 +88,58 @@ def login():
                 flash("Invalid username or password.", "error")
 
     return render_template('login.html')
-
 @app.route('/chat')
-def chat():
-    """Main chat interface. Must be logged in."""
+def chat_home():
+    if 'username' not in session:
+        flash("Please log in to access chat.", "warning")
+        return redirect(url_for('login'))
+
+    current_user = session['username']
+
+    # Step 1: Fetch all messages involving current user
+    all_msgs = list(messages_collection.find({
+        "$or": [
+            {"sender": current_user},
+            {"receiver": current_user}
+        ]
+    }).sort("timestamp", -1))  # newest first
+
+    # Step 2: Build contact => most recent message map
+    contact_latest = {}
+    for msg in all_msgs:
+        contact = msg["receiver"] if msg["sender"] == current_user else msg["sender"]
+        if contact not in contact_latest:
+            contact_latest[contact] = msg  # first (newest) match wins
+
+    # Step 3: Sort contacts by message timestamp
+    sorted_contacts = sorted(contact_latest.items(), key=lambda x: x[1]["timestamp"], reverse=True)
+
+    return render_template("chat_home.html", username=current_user, contact_messages=sorted_contacts)
+
+@app.route('/chat/<contact_username>')
+def chat(contact_username):
     if 'username' not in session:
         flash("Please log in to access the chat.", "warning")
         return redirect(url_for('login'))
 
     current_user = session['username']
-    messages = []
-    if client:
-        # For simplicity, fetching all messages. In a real app, you'd filter by chat room, etc.
-        # Ensure to sort messages (e.g., by timestamp) when retrieving.
-        messages = list(messages_collection.find().sort("timestamp", 1)) # Assuming 'timestamp' field
-    else:
-        flash("Database not connected. Cannot load chat messages. Please check server logs.", "error")
 
-    return render_template('chat.html', username=current_user, messages=messages)
+    try:
+        messages = list(messages_collection.find({
+            "$or": [
+                {"sender": current_user, "receiver": contact_username},
+                {"sender": contact_username, "receiver": current_user}
+            ]
+        }).sort("timestamp", 1))
+    except Exception as e:
+        print(f"Error loading messages: {e}")
+        messages = []
+
+    return render_template('chat.html',
+                           username=current_user,
+                           contact_username=contact_username,
+                           messages=messages)
+
 
 @app.route('/send_message', methods=['POST'])
 def send_message():
@@ -138,6 +172,23 @@ def logout():
     session.pop('username', None) # Remove username from session
     flash("You have been logged out.", "info")
     return redirect(url_for('login'))
+
+def get_contacts_from_messages(current_user):
+    contacts = set()
+
+    # Find users the current_user has messaged
+    sent_to = messages_collection.find({"sender": current_user})
+    for msg in sent_to:
+        contacts.add(msg["receiver"])
+
+    # Find users who messaged the current_user
+    received_from = messages_collection.find({"receiver": current_user})
+    for msg in received_from:
+        contacts.add(msg["sender"])
+
+    contacts.discard(current_user)  # Just in case
+
+    return sorted(list(contacts))
 
 # === Main ===
 if __name__ == '__main__':
