@@ -1,32 +1,129 @@
+<!-- templates/chat_home.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Chat Home</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GenChat - Home</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a202c; /* Dark background */
+        }
+        .chat-list-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        .chat-list-container::-webkit-scrollbar-track {
+            background: #2d3748; /* Darker track */
+            border-radius: 10px;
+        }
+        .chat-list-container::-webkit-scrollbar-thumb {
+            background: #4a5568; /* Darker thumb */
+            border-radius: 10px;
+        }
+        .chat-list-container::-webkit-scrollbar-thumb:hover {
+            background: #6b7280; /* Lighter thumb on hover */
+        }
+    </style>
 </head>
-<body class="bg-gray-100 text-gray-900">
-    <div class="max-w-2xl mx-auto p-4">
-        <h1 class="text-2xl font-bold mb-4">Conversations</h1>
-        <div class="flex flex-col space-y-2">
-            {% for contact, msg in contact_messages %}
-            <a href="{{ url_for('chat', contact_username=contact) }}"
-               class="flex items-center p-4 bg-white hover:bg-gray-50 border rounded shadow-sm transition duration-150">
-                <img class="w-10 h-10 rounded-full mr-4" src="https://placehold.co/40x40?text={{ contact[0]|upper }}" alt="{{ contact }}">
-                <div class="flex-grow">
-                    <div class="font-semibold text-gray-800">{{ contact }}</div>
-                    <div class="text-sm text-gray-500 truncate">
-                        {% if msg.sender == username %}You: {% endif %}{{ msg.content }}
-                    </div>
-                </div>
-                <div class="text-xs text-gray-400 ml-2">
-                    {{ msg.timestamp.strftime('%b %d, %H:%M') }}
-                </div>
-            </a>
-            {% else %}
-            <p class="text-gray-500">No conversations yet.</p>
-            {% endfor %}
+<body class="flex h-screen overflow-hidden text-gray-200">
+
+    <!-- Left Sidebar: Contacts/Chats -->
+    <div class="w-1/4 bg-gray-800 border-r border-gray-700 flex flex-col shadow-xl">
+        <div class="p-4 border-b border-gray-700 flex items-center justify-between">
+            <h2 class="text-2xl font-bold text-white">GenChat</h2>
+            <button class="text-gray-400 hover:text-purple-400 transition duration-200" title="Add New Chat">
+                <i class="fas fa-plus-circle text-2xl"></i>
+            </button>
         </div>
+        <div class="p-4">
+            <input type="text" placeholder="Search chats..."
+                   class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition duration-200 text-gray-200 placeholder-gray-400">
+        </div>
+
+        <nav class="flex-grow overflow-y-auto chat-list-container">
+            <!-- Flash messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                <div class="p-4 space-y-2">
+                    {% for category, message in messages %}
+                    <div class="text-sm px-4 py-3 rounded-md 
+                                {% if category == 'success' %}bg-green-700 text-white
+                                {% elif category == 'error' %}bg-red-700 text-white
+                                {% elif category == 'warning' %}bg-yellow-700 text-white
+                                {% else %}bg-gray-600 text-white{% endif %}">
+                        {{ message }}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            {% endwith %}
+
+            <!-- Current User Profile/Logout -->
+            <div class="p-4 border-b border-gray-700 bg-gray-700 flex items-center justify-between">
+                <div class="flex items-center">
+                    <img class="w-10 h-10 rounded-full mr-3 object-cover" src="https://placehold.co/128x128/3B82F6/FFFFFF?text={{ username[0]|upper }}" alt="User Avatar">
+                    <span class="font-semibold text-white">{{ username }}</span>
+                </div>
+                <a href="{{ url_for('logout') }}" class="text-gray-400 hover:text-red-400 transition duration-200" title="Logout">
+                    <i class="fas fa-sign-out-alt text-xl"></i>
+                </a>
+            </div>
+
+            <div class="p-4 text-sm text-gray-400 uppercase font-semibold border-b border-gray-700">
+                Conversations
+            </div>
+
+            <!-- Existing Conversations -->
+            {% if contact_messages %}
+                {% for contact, latest_msg in contact_messages %}
+                <a href="{{ url_for('chat_detail', contact_username=contact) }}" 
+                   class="flex items-center p-4 hover:bg-gray-700 border-b border-gray-700 transition duration-200">
+                    <img class="w-12 h-12 rounded-full mr-4 object-cover" src="https://placehold.co/128x128/9CA3AF/FFFFFF?text={{ contact[0]|upper }}" alt="{{ contact }}'s Profile">
+                    <div class="flex-grow">
+                        <div class="font-semibold text-white">{{ contact }}</div>
+                        <div class="text-sm text-gray-400 truncate">{{ "You: " if latest_msg.sender == username else "" }}{{ latest_msg.content }}</div>
+                    </div>
+                    <div class="text-xs text-gray-500">{{ latest_msg.timestamp.strftime('%H:%M') if latest_msg.timestamp else '' }}</div>
+                </a>
+                {% endfor %}
+            {% else %}
+                <p class="p-4 text-gray-500 text-center">No existing conversations. Start a new chat below!</p>
+            {% endif %}
+
+            <div class="p-4 text-sm text-gray-400 uppercase font-semibold border-b border-gray-700 mt-4">
+                Start a New Chat
+            </div>
+            
+            <!-- All Other Users (to add as contact/start new chat) -->
+            {% if all_users_usernames %}
+                {% for user_uname in all_users_usernames %}
+                <a href="{{ url_for('chat_detail', contact_username=user_uname) }}" 
+                   class="flex items-center p-4 hover:bg-purple-800 border-b border-gray-700 transition duration-200 bg-gray-800">
+                    <img class="w-12 h-12 rounded-full mr-4 object-cover" src="https://placehold.co/128x128/A78BFA/FFFFFF?text={{ user_uname[0]|upper }}" alt="{{ user_uname }}'s Profile">
+                    <div class="flex-grow">
+                        <div class="font-semibold text-white">{{ user_uname }}</div>
+                        <div class="text-sm text-purple-300">Start a conversation</div>
+                    </div>
+                    <div class="text-xl text-purple-400"><i class="fas fa-comment-dots"></i></div>
+                </a>
+                {% endfor %}
+            {% else %}
+                <p class="p-4 text-gray-500 text-center">No other users to chat with.</p>
+            {% endif %}
+        </nav>
     </div>
+
+    <!-- Right Content Area (Placeholder for actual chat detail) -->
+    <div class="flex-grow flex flex-col items-center justify-center bg-gray-900 text-gray-400">
+        <i class="fas fa-comments text-6xl mb-4 text-gray-600"></i>
+        <p class="text-lg">Select a conversation or start a new chat.</p>
+    </div>
+
 </body>
 </html>
