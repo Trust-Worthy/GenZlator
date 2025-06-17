@@ -1,42 +1,66 @@
-# app.py
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, session
+from pymongo import MongoClient
+from werkzeug.security import generate_password_hash, check_password_hash
+
 
 app = Flask(__name__)
-app.secret_key = 'your_super_secret_key_here' # Replace with a strong secret key in production
+app.secret_key = 'your_super_secret_key_here'  # Replace in production!
+
+# === MongoDB Setup ===
+client = MongoClient("your_mongodb_connection_string")  # Use MongoDB Atlas or local
+db = client.genchat
+users_collection = db.users
+
+# === Routes ===
 
 @app.route('/')
 def index():
-    """Redirects to the login page by default."""
+    """Redirect to login if not logged in, otherwise go to chat."""
+    if 'username' in session:
+        return redirect(url_for('chat'))
     return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    """Handles user login and account creation."""
+    """Handles both login and signup."""
     if request.method == 'POST':
-        # In a real application, you would handle user authentication here.
-        # This is a placeholder for frontend demonstration.
         action = request.form.get('action')
         username = request.form.get('username')
         password = request.form.get('password')
 
-        print(f"Action: {action}, Username: {username}, Password: {password}")
+        if action == 'signup':
+            existing_user = users_collection.find_one({'username': username})
+            if existing_user:
+                return "User already exists. Try logging in."
+            
+            hashed_pw = generate_password_hash(password)
+            users_collection.insert_one({'username': username, 'password': hashed_pw})
+            session['username'] = username
+            return redirect(url_for('chat'))
 
-        if action == 'login':
-            # Dummy login success
-            print("Attempting login...")
-            return redirect(url_for('chat'))
-        elif action == 'signup':
-            # Dummy signup success
-            print("Attempting signup...")
-            return redirect(url_for('chat'))
+        elif action == 'login':
+            user = users_collection.find_one({'username': username})
+            if user and check_password_hash(user['password'], password):
+                session['username'] = username
+                return redirect(url_for('chat'))
+            else:
+                return "Invalid username or password."
+
     return render_template('login.html')
 
 @app.route('/chat')
 def chat():
-    """Renders the main chat interface."""
-    # In a real app, ensure user is authenticated before rendering chat.
-    return render_template('chat.html')
+    """Main chat interface. Must be logged in."""
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    return render_template('chat.html', username=session['username'])
 
+@app.route('/logout')
+def logout():
+    """Log the user out and clear session."""
+    session.pop('username', None)
+    return redirect(url_for('login'))
+
+# === Main ===
 if __name__ == '__main__':
-    # Run the Flask app in debug mode. Set debug=False for production.
     app.run(debug=True)
