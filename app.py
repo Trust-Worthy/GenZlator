@@ -1,4 +1,3 @@
-# app.py
 import os
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from pymongo import MongoClient
@@ -10,6 +9,7 @@ from datetime import datetime
 load_dotenv()
 
 app = Flask(__name__)
+# Use environment variable for secret key, with a strong default for development
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'your_super_secret_key_here_generate_a_strong_one_in_production')
 
 # MongoDB Atlas Connection
@@ -24,14 +24,12 @@ messages_collection = None
 
 try:
     client = MongoClient(MONGO_URI)
-    db = client.get_database("genchat_db") # Changed to genchat_db for consistency with previous discussion
+    db = client.get_database("genzlator_db")
     users_collection = db.get_collection("users")
     messages_collection = db.get_collection("messages")
     print("Successfully connected to MongoDB Atlas!")
 except Exception as e:
     print(f"Failed to connect to MongoDB Atlas at startup: {e}")
-    # Flash messages cannot be used here as there is no request context yet.
-    # The client variable will remain None, and subsequent routes will handle this.
 
 # Prevent caching so refresh always goes to server (avoid stale page)
 @app.after_request
@@ -44,13 +42,13 @@ def add_no_cache_headers(response):
 @app.route('/')
 def index():
     """Redirect to login if not logged in, otherwise go to chat home."""
+    session.clear()  #
     if 'username' in session:
         return redirect(url_for('chat_home'))
     return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    """Handles both login and signup."""
     if request.method == 'POST':
         action = request.form.get('action')
         username = request.form.get('username')
@@ -81,145 +79,140 @@ def login():
             if user and check_password_hash(user['password'], password):
                 session['username'] = username
                 flash(f"Welcome back, {username}!", "success")
-                return redirect(url_for('chat_home')) # Redirect to chat_home on successful login
+                return redirect(url_for('chat_home'))
             else:
                 flash("Invalid username or password.", "error")
 
     return render_template('login.html')
 
+# @app.route('/chat')
+# def chat_home():
+#     if 'username' not in session:
+#         flash("Please log in to access chat.", "warning")
+#         return redirect(url_for('login'))
+
+#     current_user = session['username']
+
+#     all_msgs = list(messages_collection.find({
+#         "$or": [
+#             {"sender": current_user},
+#             {"receiver": current_user}
+#         ]
+#     }).sort("timestamp", -1))
+
+#     contact_latest = {}
+#     for msg in all_msgs:
+#         contact = msg["receiver"] if msg["sender"] == current_user else msg["sender"]
+#         if contact not in contact_latest:
+#             contact_latest[contact] = msg
+
+#     sorted_contacts = sorted(contact_latest.items(), key=lambda x: x[1]["timestamp"], reverse=True)
+
+#     return render_template("chat_home.html", username=current_user, contact_messages=sorted_contacts)
 @app.route('/chat')
 def chat_home():
-    """
-    Displays the chat home screen with existing conversations and
-    a list of other users to start new conversations with.
-    """
     if 'username' not in session:
         flash("Please log in to access chat.", "warning")
         return redirect(url_for('login'))
 
     current_user = session['username']
-    all_users = []
+
+    # Fetch all users except current user for "all users" list
+    all_users = list(users_collection.find({'username': {'$ne': current_user}}, {'_id': 0, 'username': 1}))
+
+    # Get existing contacts with messages (if any)
+    all_msgs = list(messages_collection.find({
+        "$or": [
+            {"sender": current_user},
+            {"receiver": current_user}
+        ]
+    }).sort("timestamp", -1))
+
     contact_latest = {}
-    sorted_contacts = []
+    for msg in all_msgs:
+        contact = msg["receiver"] if msg["sender"] == current_user else msg["sender"]
+        if contact not in contact_latest:
+            contact_latest[contact] = msg
 
-    if client:
-        # Fetch all users except current user
-        # Exclude _id to simplify JSON for template
-        all_users = list(users_collection.find({'username': {'$ne': current_user}}, {'_id': 0, 'username': 1}))
-        # Extract just the usernames
-        all_users_usernames = [user['username'] for user in all_users]
-
-        # Get existing contacts with messages
-        all_msgs = list(messages_collection.find({
-            "$or": [
-                {"sender": current_user},
-                {"receiver": current_user}
-            ]
-        }).sort("timestamp", -1)) # Sort descending to easily get latest message
-
-        # Build a dictionary of latest message for each contact
-        for msg in all_msgs:
-            contact = msg["receiver"] if msg["sender"] == current_user else msg["sender"]
-            if contact not in contact_latest:
-                contact_latest[contact] = msg
-
-        # Sort contacts by their latest message timestamp
-        sorted_contacts = sorted(contact_latest.items(), key=lambda x: x[1]["timestamp"], reverse=True)
-    else:
-        flash("Database not connected. Cannot load chat data. Please check server logs.", "error")
+    sorted_contacts = sorted(contact_latest.items(), key=lambda x: x[1]["timestamp"], reverse=True)
 
     return render_template(
         "chat_home.html",
         username=current_user,
-        contact_messages=sorted_contacts,  # Existing conversations with latest message
-        all_users_usernames=all_users_usernames # List of all other usernames
+        contact_messages=sorted_contacts,
+        all_users=all_users  # <-- pass all users for selection
     )
 
 @app.route('/chat/<contact_username>')
-def chat_detail(contact_username):
-    """Displays the detailed chat conversation with a specific contact."""
+def chat(contact_username):
     if 'username' not in session:
         flash("Please log in to access the chat.", "warning")
         return redirect(url_for('login'))
 
     current_user = session['username']
 
-    # Ensure the target contact exists in the database
-    target_user_exists = users_collection.find_one({'username': contact_username})
-    if not target_user_exists:
-        flash(f"User '{contact_username}' not found.", "error")
-        return redirect(url_for('chat_home'))
+    try:
+        messages = list(messages_collection.find({
+            "$or": [
+                {"sender": current_user, "receiver": contact_username},
+                {"sender": contact_username, "receiver": current_user}
+            ]
+        }).sort("timestamp", 1))
+    except Exception as e:
+        print(f"Error loading messages: {e}")
+        messages = []
 
-    messages = []
-    if client:
-        try:
-            # Fetch messages between current_user and contact_username
-            messages = list(messages_collection.find({
-                "$or": [
-                    {"sender": current_user, "receiver": contact_username},
-                    {"sender": contact_username, "receiver": current_user}
-                ]
-            }).sort("timestamp", 1)) # Sort ascending for chronological order
-        except Exception as e:
-            print(f"Error loading messages for {contact_username}: {e}")
-            flash("Could not load messages for this conversation. Database error.", "error")
-    else:
-        flash("Database not connected. Cannot load messages. Please check server logs.", "error")
-
-    return render_template('chat_detail.html',
+    return render_template('chat.html',
                            username=current_user,
                            contact_username=contact_username,
                            messages=messages)
 
 @app.route('/send_message', methods=['POST'])
 def send_message():
-    """Handles sending a new message."""
     if 'username' not in session:
         flash("You must be logged in to send messages.", "error")
         return redirect(url_for('login'))
 
     if not client:
         flash("Database not connected. Cannot send message. Please check server logs.", "error")
-        # Attempt to redirect to the correct chat detail if receiver is available, else home
-        receiver_fallback = request.form.get('receiver')
-        return redirect(url_for('chat_detail', contact_username=receiver_fallback) if receiver_fallback else url_for('chat_home'))
+        return redirect(url_for('chat_home'))
 
     sender = session['username']
     content = request.form.get('message_content')
-    receiver = request.form.get('receiver') # Get the receiver from the form
-
-    if not receiver:
-        flash("Recipient not specified.", "error")
-        return redirect(url_for('chat_home'))
-
-    # Ensure receiver exists before attempting to send a message
-    if not users_collection.find_one({'username': receiver}):
-        flash(f"Recipient '{receiver}' not found.", "error")
-        return redirect(url_for('chat_home'))
 
     if content and content.strip():
         messages_collection.insert_one({
             "sender": sender,
-            "receiver": receiver,
             "content": content,
             "timestamp": datetime.now(),
-            "translated_content": "" # Placeholder for AI translation
+            "translated_content": ""
         })
         flash("Message sent!", "success")
     else:
         flash("Message cannot be empty.", "error")
-    
-    # Redirect back to the specific chat with the receiver
-    return redirect(url_for('chat_detail', contact_username=receiver))
+    return redirect(url_for('chat_home'))
 
 @app.route('/logout')
 def logout():
-    """Log the user out and clear session."""
-    session.pop('username', None) # Remove username from session
-    session.clear()  # Fully clear session data
+    session.pop('username', None)
+    session.clear()  # fully clear session data
     flash("You have been logged out.", "info")
     return redirect(url_for('login'))
 
+def get_contacts_from_messages(current_user):
+    contacts = set()
+
+    sent_to = messages_collection.find({"sender": current_user})
+    for msg in sent_to:
+        contacts.add(msg["receiver"])
+
+    received_from = messages_collection.find({"receiver": current_user})
+    for msg in received_from:
+        contacts.add(msg["sender"])
+
+    contacts.discard(current_user)
+
+    return sorted(list(contacts))
+
 if __name__ == '__main__':
     app.run(debug=True)
-
