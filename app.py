@@ -1,13 +1,19 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 from pymongo import MongoClient
 from werkzeug.security import generate_password_hash, check_password_hash
-
+import os
+from dotenv import load_dotenv
 
 app = Flask(__name__)
 app.secret_key = 'your_super_secret_key_here'  # Replace in production!
 
+
+# Now you can access them via os.environ as usual
+api_key = os.environ.get('MY_API_KEY')
+db_url = os.environ.get('MONGO_STRING')
+
 # === MongoDB Setup ===
-client = MongoClient("your_mongodb_connection_string")  # Use MongoDB Atlas or local
+client = MongoClient(db_url)  # Use MongoDB Atlas or local
 db = client.genchat
 users_collection = db.users
 
