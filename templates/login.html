@@ -23,7 +23,24 @@
       <p class="text-gray-400 text-sm mt-1">Talk across generations — fluently</p>
     </div>
 
+
     <form method="POST" action="/login" class="space-y-5">
+        <!-- Flash messages go right inside the form -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="space-y-2">
+                {% for category, message in messages %}
+                <div class="text-sm px-4 py-3 rounded-md 
+                            {% if category == 'success' %}bg-green-600 text-white
+                            {% elif category == 'error' %}bg-red-600 text-white
+                            {% elif category == 'warning' %}bg-yellow-600 text-black
+                            {% else %}bg-gray-700 text-white{% endif %}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        {% endwith %}
       <div>
         <label for="username" class="block text-sm font-medium text-gray-300">Username or Email</label>
         <input id="username" name="username" type="text" required

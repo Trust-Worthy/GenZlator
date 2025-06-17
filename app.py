@@ -2,9 +2,9 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from pymongo import MongoClient
-from werkzeug.security import generate_password_hash, check_password_hash # Re-added: For password hashing
+from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
-from datetime import datetime # Import datetime for timestamps
+from datetime import datetime
 
 # Load environment variables from .env file
 load_dotenv()
@@ -25,16 +25,19 @@ db = None
 users_collection = None
 messages_collection = None
 
+# --- MongoDB connection ---
+# This block attempts to connect to MongoDB when the Flask app starts.
+# Flash messages cannot be used here because there is no active request context yet.
 try:
     client = MongoClient(MONGO_URI)
-    db = client.get_database("genchat_db") # Name your database, e.g., 'genchat_db'
+    db = client.get_database("genzlator_db") # Name your database, e.g., 'genchat_db'
     users_collection = db.get_collection("users") # Collection for users
     messages_collection = db.get_collection("messages") # Collection for messages
     print("Successfully connected to MongoDB Atlas!")
 except Exception as e:
-    print(f"Failed to connect to MongoDB Atlas: {e}")
-    flash("Failed to connect to the database. Please try again later.", "error")
-    # In a real app, you might want to log this error more formally
+    print(f"Failed to connect to MongoDB Atlas at startup: {e}")
+    # Do not use flash() here as there is no request context.
+    # The client variable will remain None, and subsequent routes will handle this.
 
 # --- Routes ---
 
@@ -54,8 +57,15 @@ def login():
         password = request.form.get('password')
 
         if not client:
-            flash("Database not connected. Cannot perform login/signup.", "error")
+            flash("Database not connected. Cannot perform login/signup. Please check server logs.", "error")
             return render_template('login.html')
+
+        if not username or not password:
+            flash("Username and password are required.", "error")
+            return render_template('login.html')
+
+        # Normalize username by stripping whitespace and converting to lowercase
+        username = username.strip().lower()
 
         if action == 'signup':
             # Check if user already exists
@@ -63,19 +73,17 @@ def login():
             if existing_user:
                 flash("Username already exists. Please choose a different one.", "error")
             else:
-                hashed_pw = generate_password_hash(password) # Re-added: Hash the password before storing
+                hashed_pw = generate_password_hash(password)
                 users_collection.insert_one({'username': username, 'password': hashed_pw})
                 flash("Account created successfully! Please log in.", "success")
-                # Do not log in automatically after signup; encourage explicit login
-                return redirect(url_for('login'))
+                return redirect(url_for('login')) # Redirect to login page after signup
 
         elif action == 'login':
             user = users_collection.find_one({'username': username})
-            # Re-added: Verify hashed password
             if user and check_password_hash(user['password'], password):
-                session['username'] = username # Store username in session
+                session['username'] = username
                 flash(f"Welcome back, {username}!", "success")
-                return redirect(url_for('chat'))
+                return redirect(url_for('chat')) # Redirect directly to chat on successful login
             else:
                 flash("Invalid username or password.", "error")
 
@@ -95,7 +103,7 @@ def chat():
         # Ensure to sort messages (e.g., by timestamp) when retrieving.
         messages = list(messages_collection.find().sort("timestamp", 1)) # Assuming 'timestamp' field
     else:
-        flash("Database not connected. Cannot load chat messages.", "error")
+        flash("Database not connected. Cannot load chat messages. Please check server logs.", "error")
 
     return render_template('chat.html', username=current_user, messages=messages)
 
@@ -106,7 +114,7 @@ def send_message():
         return redirect(url_for('login'))
 
     if not client:
-        flash("Database not connected. Cannot send message.", "error")
+        flash("Database not connected. Cannot send message. Please check server logs.", "error")
         return redirect(url_for('chat'))
 
     sender = session['username'] # Use actual logged-in user from session

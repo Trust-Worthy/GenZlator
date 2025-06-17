@@ -97,6 +97,13 @@
                 <button class="hover:text-purple-600 transition duration-200"><i class="fas fa-video text-xl"></i></button>
                 <button class="hover:text-purple-600 transition duration-200"><i class="fas fa-phone text-xl"></i></button>
                 <button class="hover:text-purple-600 transition duration-200"><i class="fas fa-info-circle text-xl"></i></button>
+
+                <!-- Logout button with confirmation -->
+                <a href="{{ url_for('logout') }}" title="Logout"
+                onclick="return confirm('Are you sure you want to log out?');"
+                class="hover:text-red-600 transition duration-200 text-gray-500 flex items-center">
+                    <i class="fas fa-sign-out-alt text-xl"></i>
+                </a>
             </div>
         </div>
 
